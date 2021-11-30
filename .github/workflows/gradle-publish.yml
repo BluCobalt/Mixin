@@ -32,4 +32,4 @@ jobs:
     - name: Publish to GitHub Packages
       run: gradle publish
       env:
-        TOKEN: ${{ secrets.MAVEN_PUBLISH_KEY }}
+        MAVEN_PUBLISH_KEY: ${{ secrets.MAVEN_PUBLISH_KEY }}
