@@ -24,9 +24,9 @@ apply plugin: 'com.github.johnrengelman.shadow'
 defaultTasks 'licenseFormat', 'check', 'build'
 
 // Basic project information
-group = 'org.spongepowered'
-archivesBaseName = 'mixin'
-version = buildVersion + (buildType == 'RELEASE' ? '' : "-$buildType")
+group = 'dev.blucobalt'
+archivesBaseName = 'sponge-mixin'
+version = "0.01" + "+mixin." + buildVersion + (buildType == 'RELEASE' ? '' : "-$buildType")
 
 // Extended project information
 ext.projectName = 'Mixin'
@@ -444,7 +444,7 @@ ext.mavenPom = {
         }
     }
 }
-
+def ENV = System.getenv()
 publishing {
     publications {
         maven(MavenPublication) {
@@ -465,33 +465,17 @@ publishing {
     }
     
     repositories {
-        if (buildType == 'RELEASE') {
-            if (project.hasProperty("releaseRepo")) {
-                maven {
-                    credentials {
-                        username = project.releaseRepoUsername
-                        password = project.releaseRepoPassword
-                    }
-                    url project.releaseRepo
-                }
+        if (ENV.MAVEN_PUBLISH_KEY) {
+        maven {
+            url "https://repo.blucobalt.dev/repository/maven-hosted"
+            credentials {
+                username 'github-actions'
+                password ENV.MAVEN_PUBLISH_KEY
             }
-            if (project.hasProperty("spongeReleaseRepo")) {
-                maven {
-                    credentials {
-                        username = project.spongeUsername
-                        password = project.spongePassword
-                    }
-                    url project.spongeReleaseRepo
-                }
-            }
-        } else if (project.hasProperty("spongeSnapshotRepo")) {
-            maven {
-                credentials {
-                    username = project.spongeUsername
-                    password = project.spongePassword
-                }
-                url project.spongeSnapshotRepo
+            authentication {
+                basic(BasicAuthentication)
             }
         }
+    }
     }
 }
