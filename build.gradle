@@ -26,7 +26,7 @@ defaultTasks 'licenseFormat', 'check', 'build'
 // Basic project information
 group = 'dev.blucobalt'
 archivesBaseName = 'sponge-mixin'
-version = "0.01" + "+mixin." + buildVersion + (buildType == 'RELEASE' ? '' : "-$buildType")
+version = "0.02" + "+mixin." + buildVersion + (buildType == 'RELEASE' ? '' : "-$buildType")
 
 // Extended project information
 ext.projectName = 'Mixin'
@@ -69,14 +69,14 @@ repositories {
 
 configurations {
     stagingJar
-    
-    exampleImplementation       .extendsFrom implementation
-    fernflowerImplementation    .extendsFrom implementation
-    launchwrapperImplementation .extendsFrom implementation
-    agentImplementation         .extendsFrom implementation
-    modlauncherImplementation   .extendsFrom implementation
-    modlauncher9Implementation  .extendsFrom modlauncherImplementation
-    modularityImplementation    .extendsFrom modlauncher9Implementation
+
+    exampleImplementation.extendsFrom implementation
+    fernflowerImplementation.extendsFrom implementation
+    launchwrapperImplementation.extendsFrom implementation
+    agentImplementation.extendsFrom implementation
+    modlauncherImplementation.extendsFrom implementation
+    modlauncher9Implementation.extendsFrom modlauncherImplementation
+    modularityImplementation.extendsFrom modlauncher9Implementation
 }
 
 sourceSets {
@@ -149,7 +149,7 @@ sourceSets {
 // Project dependencies
 dependencies {
     def guava = 'com.google.guava:guava:21.0' // from mc1.12 onwards
-    
+
     implementation guava
     implementation 'com.google.code.gson:gson:2.2.4'
     if (Float.parseFloat(asmVersion) < 6) {
@@ -162,46 +162,46 @@ dependencies {
     // Annotation Processor
     apImplementation "org.ow2.asm:asm-tree:$asmVersion"
     apImplementation guava
-    
+
     // Fernflower decompiler
     fernflowerImplementation 'org.jetbrains.java.decompiler:fernflower:sponge-SNAPSHOT'
 
     // LegacyLauncher service
-    launchwrapperImplementation ('net.minecraft:launchwrapper:1.11') {
+    launchwrapperImplementation('net.minecraft:launchwrapper:1.11') {
         exclude module: 'lwjgl'
         exclude module: 'asm-debug-all'
         exclude module: 'jopt-simple'
     }
-    
+
     modlauncherImplementation 'net.sf.jopt-simple:jopt-simple:5.0.4'
     modlauncherCompileOnly 'org.apache.logging.log4j:log4j-core:2.0-beta9'
-    modlauncherImplementation ("cpw.mods:modlauncher:$legacyModlauncherVersion") {
+    modlauncherImplementation("cpw.mods:modlauncher:$legacyModlauncherVersion") {
         exclude module: 'asm'
         exclude module: 'asm-analysis'
         exclude module: 'asm-commons'
         exclude module: 'asm-tree'
         exclude module: 'jopt-simple'
     }
-    
-    modlauncher4Implementation ("cpw.mods:modlauncher:$legacyModlauncherVersion") {
+
+    modlauncher4Implementation("cpw.mods:modlauncher:$legacyModlauncherVersion") {
         exclude module: 'asm'
         exclude module: 'asm-analysis'
         exclude module: 'asm-commons'
         exclude module: 'asm-tree'
         exclude module: 'jopt-simple'
     }
-    
-    modlauncher9Implementation ("cpw.mods:modlauncher:$modlauncherVersion") {
+
+    modlauncher9Implementation("cpw.mods:modlauncher:$modlauncherVersion") {
         exclude module: 'jopt-simple'
     }
     modlauncher9Implementation 'cpw.mods:securejarhandler:0.9.+'
-    
+
     // asm bridge
     bridgeImplementation 'org.apache.logging.log4j:log4j-core:2.0-beta9'
     bridgeImplementation "org.ow2.asm:asm-commons:$legacyForgeAsmVersion"
-    
+
     legacyImplementation "org.ow2.asm:asm-tree:$asmVersion"
-    
+
     modularityCompileOnly 'org.apache.logging.log4j:log4j-core:2.11.2'
 }
 
@@ -210,7 +210,8 @@ javadoc {
     classpath += sourceSets.legacy.output
     source sourceSets.ap.allJava
     exclude {
-        it.relativePath.file && it.relativePath.pathString =~ 'tools' && !(it.name =~ /SuppressedBy|package-info/) }
+        it.relativePath.file && it.relativePath.pathString =~ 'tools' && !(it.name =~ /SuppressedBy|package-info/)
+    }
     options {
         docTitle 'Welcome to the Mixin Javadoc'
         overview 'docs/javadoc/overview.html'
@@ -233,14 +234,14 @@ eclipse {
             entries.removeAll { it.kind == 'lib' && it.path =~ ~/modlauncher-$legacyModlauncherVersion/ }
             entries.removeAll { it.kind == 'src' && it.path =~ ~/modlauncher4/ }
             entries.removeAll { it.kind == 'lib' && it.path =~ ~/log4j.*beta9/ }
-            
+
             // Mark everything else as a module
             entries.findAll { it.kind == "con" && it.path =~ /gradleclasspathcontainer$/ }.each {
                 it.entryAttributes['module'] = 'true'
             }
         }
     }
-    
+
     // Build service task outputs for test projects
     autoBuildTasks compileModlauncher4Java, compileModlauncher9Java, compileLaunchwrapperJava
 }
@@ -248,7 +249,7 @@ eclipse {
 // Filter, process, and include resources
 processResources {
     // Include in final JAR
-   from 'LICENSE.txt'
+    from 'LICENSE.txt'
 }
 
 // License header formatting
@@ -270,10 +271,10 @@ license {
 
 checkstyle {
     configProperties = [
-        "name"        : project.name,
-        "organization": project.organization,
-        "url"         : project.url,
-        "year"        : project.inceptionYear
+            "name"        : project.name,
+            "organization": project.organization,
+            "url"         : project.url,
+            "year"        : project.inceptionYear
     ]
     configFile = file("checkstyle.xml")
     toolVersion = '8.43'
@@ -288,31 +289,33 @@ tasks.withType(JavaCompile) {
 
 def modularityInputs = objects.fileCollection()
 
-project.sourceSets.each { set -> {
-    if (set.ext.has("languageVersion")) {
-        project.tasks[set.compileJavaTaskName].javaCompiler = javaToolchains.compilerFor {
-            languageVersion = JavaLanguageVersion.of(set.ext.languageVersion)
+project.sourceSets.each { set ->
+    {
+        if (set.ext.has("languageVersion")) {
+            project.tasks[set.compileJavaTaskName].javaCompiler = javaToolchains.compilerFor {
+                languageVersion = JavaLanguageVersion.of(set.ext.languageVersion)
+            }
         }
-    } 
-    if (set.ext.has("compatibility")) {
-        project.tasks[set.compileJavaTaskName].sourceCompatibility = set.ext.compatibility
-        project.tasks[set.compileJavaTaskName].targetCompatibility = set.ext.compatibility
-    }
-    def modularityExcluded = set.ext.has("modularityExcluded") && set.ext.modularityExcluded
-    if (!modularityExcluded) {
-        project.sourceSets.modularity {
-            compileClasspath += set.output
+        if (set.ext.has("compatibility")) {
+            project.tasks[set.compileJavaTaskName].sourceCompatibility = set.ext.compatibility
+            project.tasks[set.compileJavaTaskName].targetCompatibility = set.ext.compatibility
         }
-        modularityInputs.from set.output
+        def modularityExcluded = set.ext.has("modularityExcluded") && set.ext.modularityExcluded
+        if (!modularityExcluded) {
+            project.sourceSets.modularity {
+                compileClasspath += set.output
+            }
+            modularityInputs.from set.output
+        }
     }
-}}
+}
 
 compileModularityJava {
     inputs.files(modularityInputs)
     doFirst {
         options.compilerArgs = [
-            '--module-path', classpath.asPath,
-            '--patch-module', "org.spongepowered.mixin=${modularityInputs.collect { it.absolutePath }.join(File.pathSeparator)}"
+                '--module-path', classpath.asPath,
+                '--patch-module', "org.spongepowered.mixin=${modularityInputs.collect { it.absolutePath }.join(File.pathSeparator)}"
         ]
     }
 }
@@ -329,25 +332,25 @@ task stagingJar(type: ShadowJar) {
         from it.output
     }
     configurations = [project.configurations.stagingJar]
-    
+
     // JAR manifest configuration
     manifest.attributes(
-        "Built-By": System.properties['user.name'],
-        "Created-By": System.properties['java.vm.version'] + " (" + System.properties['java.vm.vendor'] + ")",
-        "Implementation-Title": name,
-        "Implementation-Version": project.version + "+" + ciSystem + "-b" + buildNumber + ".git-" + commit,
-        "Implementation-Vendor": url,
-        // for hotswap agent
-        "Premain-Class": "org.spongepowered.tools.agent.MixinAgent",
-        "Agent-Class": "org.spongepowered.tools.agent.MixinAgent",
-        "Can-Redefine-Classes": true,
-        "Can-Retransform-Classes": true
+            "Built-By": System.properties['user.name'],
+            "Created-By": System.properties['java.vm.version'] + " (" + System.properties['java.vm.vendor'] + ")",
+            "Implementation-Title": name,
+            "Implementation-Version": project.version + "+" + ciSystem + "-b" + buildNumber + ".git-" + commit,
+            "Implementation-Vendor": url,
+            // for hotswap agent
+            "Premain-Class": "org.spongepowered.tools.agent.MixinAgent",
+            "Agent-Class": "org.spongepowered.tools.agent.MixinAgent",
+            "Can-Redefine-Classes": true,
+            "Can-Retransform-Classes": true
     )
 
     if (project.doSignJar) {
         classifier = 'unsigned'
     }
-    
+
     mergeServiceFiles()
 }
 
@@ -355,7 +358,7 @@ task stagingJar(type: ShadowJar) {
 configurations.archives.artifacts.clear()
 
 // generate shadow jar so we can use the AP standalone
-shadowJar  {
+shadowJar {
     from sourceSets.ap.output
     classifier = 'processor'
 }
@@ -371,15 +374,15 @@ if (project.doSignJar) {
         doLast {
             stagingJar.outputs.files.each {
                 ant.signjar(
-                    alias: project.keyStoreCert,
-                    jar: it,
-                    signedJar: new File(it.parent, it.name.replace('-unsigned', '')),
-                    keystore: project.keyStorePath,
-                    storepass: project.keyStoreSecret,
-                    keypass: project.keyStoreSecret,
-                    tsaurl: project.timestampAuthority,
-                    preservelastmodified: 'true',
-                    verbose: true
+                        alias: project.keyStoreCert,
+                        jar: it,
+                        signedJar: new File(it.parent, it.name.replace('-unsigned', '')),
+                        keystore: project.keyStorePath,
+                        storepass: project.keyStoreSecret,
+                        keypass: project.keyStoreSecret,
+                        tsaurl: project.timestampAuthority,
+                        preservelastmodified: 'true',
+                        verbose: true
                 )
             }
         }
@@ -399,13 +402,13 @@ task sourceJar(type: Jar) {
         from it.java
         from it.resources
     }
-	classifier = "sources"
+    classifier = "sources"
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-	from javadoc.destinationDir
-	classifier = "javadoc"
+    from javadoc.destinationDir
+    classifier = "javadoc"
 }
 
 artifacts {
@@ -463,19 +466,19 @@ publishing {
             artifact shadowJar
         }
     }
-    
+
     repositories {
         if (ENV.MAVEN_PUBLISH_KEY) {
-        maven {
-            url "https://repo.blucobalt.dev/repository/maven-hosted"
-            credentials {
-                username 'github-actions'
-                password ENV.MAVEN_PUBLISH_KEY
-            }
-            authentication {
-                basic(BasicAuthentication)
+            maven {
+                url "https://repo.blucobalt.dev/repository/maven-hosted"
+                credentials {
+                    username 'github-actions'
+                    password ENV.MAVEN_PUBLISH_KEY
+                }
+                authentication {
+                    basic(BasicAuthentication)
+                }
             }
         }
-    }
     }
 }

@@ -492,12 +492,10 @@ class MixinProcessor {
             Config handle = iter.next();
             try {
                 MixinConfig config = handle.get();
-                if (config.select(environment)) {
-                    iter.remove();
-                    MixinProcessor.logger.log(this.verboseLoggingLevel, "Selecting config {}", config);
-                    config.onSelect();
-                    this.pendingConfigs.add(config);
-                }
+                iter.remove();
+                MixinProcessor.logger.log(this.verboseLoggingLevel, "Selecting config {}", config);
+                config.onSelect();
+                this.pendingConfigs.add(config);
             } catch (Exception ex) {
                 MixinProcessor.logger.warn(String.format("Failed to select mixin config: %s", handle), ex);
             }
