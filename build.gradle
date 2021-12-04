@@ -19,6 +19,7 @@ apply plugin: 'maven-publish'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'potemkin-modules'
 
 // Default tasks
 defaultTasks 'licenseFormat', 'check', 'build'
@@ -69,14 +70,15 @@ repositories {
 
 configurations {
     stagingJar
-
-    exampleImplementation.extendsFrom implementation
-    fernflowerImplementation.extendsFrom implementation
-    launchwrapperImplementation.extendsFrom implementation
-    agentImplementation.extendsFrom implementation
-    modlauncherImplementation.extendsFrom implementation
-    modlauncher9Implementation.extendsFrom modlauncherImplementation
-    modularityImplementation.extendsFrom modlauncher9Implementation
+    
+    exampleImplementation       .extendsFrom implementation
+    fernflowerImplementation    .extendsFrom implementation
+    launchwrapperImplementation .extendsFrom implementation
+    agentImplementation         .extendsFrom implementation
+    modlauncherImplementation   .extendsFrom implementation
+    modlauncher9Implementation  .extendsFrom modlauncherImplementation
+    modularityImplementation    .extendsFrom modlauncher9Implementation
+    modularityCompileOnly       .extendsFrom compileOnly
 }
 
 sourceSets {
@@ -144,6 +146,15 @@ sourceSets {
         ext.languageVersion = 16
         ext.modularityExcluded = true // don't add ourselves
     }
+}
+
+// Because Mixin aims to support a variety of environments, we have to be able to run with older versions of GSON and Guava that lack official module
+// names. This means the same library may appear with multiple module names. We want to be able to link our module with either of these two at
+// runtime, without having to have two versions of the library on our compile-time module path. To do this, we generate empty "potemkin" jars with
+// *only* a module descriptor for the module we want to be able to compile against.
+potemkinModules {
+    module 'com.google.gson'
+    module 'com.google.common'
 }
 
 // Project dependencies
@@ -242,6 +253,18 @@ eclipse {
         }
     }
 
+    project {
+        resourceFilter {
+            appliesTo = 'FOLDERS'
+            type = 'EXCLUDE_ALL'
+            matcher {
+                id = 'org.eclipse.ui.ide.multiFilter'
+                arguments = '1.0-name-matches-false-false-buildSrc'
+            }
+        }
+    }
+
+
     // Build service task outputs for test projects
     autoBuildTasks compileModlauncher4Java, compileModlauncher9Java, compileLaunchwrapperJava
 }
@@ -277,7 +300,7 @@ checkstyle {
             "year"        : project.inceptionYear
     ]
     configFile = file("checkstyle.xml")
-    toolVersion = '8.43'
+    toolVersion = '8.44'
 }
 
 // Source compiler configuration
