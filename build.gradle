@@ -19,6 +19,7 @@ apply plugin: 'maven-publish'
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'potemkin-modules'
 
 // Default tasks
 defaultTasks 'licenseFormat', 'check', 'build'
@@ -77,6 +78,7 @@ configurations {
     modlauncherImplementation.extendsFrom implementation
     modlauncher9Implementation.extendsFrom modlauncherImplementation
     modularityImplementation.extendsFrom modlauncher9Implementation
+    modularityCompileOnly.extendsFrom compileOnly
 }
 
 sourceSets {
@@ -144,6 +146,15 @@ sourceSets {
         ext.languageVersion = 16
         ext.modularityExcluded = true // don't add ourselves
     }
+}
+
+// Because Mixin aims to support a variety of environments, we have to be able to run with older versions of GSON and Guava that lack official module
+// names. This means the same library may appear with multiple module names. We want to be able to link our module with either of these two at
+// runtime, without having to have two versions of the library on our compile-time module path. To do this, we generate empty "potemkin" jars with
+// *only* a module descriptor for the module we want to be able to compile against.
+potemkinModules {
+    module 'com.google.gson'
+    module 'com.google.common'
 }
 
 // Project dependencies
@@ -242,6 +253,17 @@ eclipse {
         }
     }
 
+    project {
+        resourceFilter {
+            appliesTo = 'FOLDERS'
+            type = 'EXCLUDE_ALL'
+            matcher {
+                id = 'org.eclipse.ui.ide.multiFilter'
+                arguments = '1.0-name-matches-false-false-buildSrc'
+            }
+        }
+    }
+
     // Build service task outputs for test projects
     autoBuildTasks compileModlauncher4Java, compileModlauncher9Java, compileLaunchwrapperJava
 }
@@ -277,7 +299,7 @@ checkstyle {
             "year"        : project.inceptionYear
     ]
     configFile = file("checkstyle.xml")
-    toolVersion = '8.43'
+    toolVersion = '8.44'
 }
 
 // Source compiler configuration
@@ -308,175 +330,175 @@ project.sourceSets.each { set ->
             modularityInputs.from set.output
         }
     }
-}
 
-compileModularityJava {
-    inputs.files(modularityInputs)
-    doFirst {
-        options.compilerArgs = [
-                '--module-path', classpath.asPath,
-                '--patch-module', "org.spongepowered.mixin=${modularityInputs.collect { it.absolutePath }.join(File.pathSeparator)}"
-        ]
-    }
-}
-
-if (JavaVersion.current().isJava8Compatible()) {
-    tasks.withType(Javadoc) {
-        // disable the crazy super-strict doclint tool in Java 8
-        options.addStringOption('Xdoclint:syntax', '-quiet')
-    }
-}
-
-task stagingJar(type: ShadowJar) {
-    sourceSets.findAll { !(it.name =~ /example|test/) }.each {
-        from it.output
-    }
-    configurations = [project.configurations.stagingJar]
-
-    // JAR manifest configuration
-    manifest.attributes(
-            "Built-By": System.properties['user.name'],
-            "Created-By": System.properties['java.vm.version'] + " (" + System.properties['java.vm.vendor'] + ")",
-            "Implementation-Title": name,
-            "Implementation-Version": project.version + "+" + ciSystem + "-b" + buildNumber + ".git-" + commit,
-            "Implementation-Vendor": url,
-            // for hotswap agent
-            "Premain-Class": "org.spongepowered.tools.agent.MixinAgent",
-            "Agent-Class": "org.spongepowered.tools.agent.MixinAgent",
-            "Can-Redefine-Classes": true,
-            "Can-Retransform-Classes": true
-    )
-
-    if (project.doSignJar) {
-        classifier = 'unsigned'
+    compileModularityJava {
+        inputs.files(modularityInputs)
+        doFirst {
+            options.compilerArgs = [
+                    '--module-path', classpath.asPath,
+                    '--patch-module', "org.spongepowered.mixin=${modularityInputs.collect { it.absolutePath }.join(File.pathSeparator)}"
+            ]
+        }
     }
 
-    mergeServiceFiles()
-}
+    if (JavaVersion.current().isJava8Compatible()) {
+        tasks.withType(Javadoc) {
+            // disable the crazy super-strict doclint tool in Java 8
+            options.addStringOption('Xdoclint:syntax', '-quiet')
+        }
+    }
+
+    task stagingJar(type: ShadowJar) {
+        sourceSets.findAll { !(it.name =~ /example|test/) }.each {
+            from it.output
+        }
+        configurations = [project.configurations.stagingJar]
+
+        // JAR manifest configuration
+        manifest.attributes(
+                "Built-By": System.properties['user.name'],
+                "Created-By": System.properties['java.vm.version'] + " (" + System.properties['java.vm.vendor'] + ")",
+                "Implementation-Title": name,
+                "Implementation-Version": project.version + "+" + ciSystem + "-b" + buildNumber + ".git-" + commit,
+                "Implementation-Vendor": url,
+                // for hotswap agent
+                "Premain-Class": "org.spongepowered.tools.agent.MixinAgent",
+                "Agent-Class": "org.spongepowered.tools.agent.MixinAgent",
+                "Can-Redefine-Classes": true,
+                "Can-Retransform-Classes": true
+        )
+
+        if (project.doSignJar) {
+            classifier = 'unsigned'
+        }
+
+        mergeServiceFiles()
+    }
 
 // Clear artifacts because jar will be there by default and we want to use staging jar instead
-configurations.archives.artifacts.clear()
+    configurations.archives.artifacts.clear()
 
 // generate shadow jar so we can use the AP standalone
-shadowJar {
-    from sourceSets.ap.output
-    classifier = 'processor'
-}
-build.dependsOn(shadowJar)
+    shadowJar {
+        from sourceSets.ap.output
+        classifier = 'processor'
+    }
+    build.dependsOn(shadowJar)
 
-if (project.doSignJar) {
-    // Define signjar task    
-    task signJar() {
-        inputs.files(stagingJar.outputs)
-        outputs.files stagingJar.outputs.files.collect {
-            new File(it.parent, it.name.replace('-unsigned', ''))
-        }
-        doLast {
-            stagingJar.outputs.files.each {
-                ant.signjar(
-                        alias: project.keyStoreCert,
-                        jar: it,
-                        signedJar: new File(it.parent, it.name.replace('-unsigned', '')),
-                        keystore: project.keyStorePath,
-                        storepass: project.keyStoreSecret,
-                        keypass: project.keyStoreSecret,
-                        tsaurl: project.timestampAuthority,
-                        preservelastmodified: 'true',
-                        verbose: true
-                )
+    if (project.doSignJar) {
+        // Define signjar task
+        task signJar() {
+            inputs.files(stagingJar.outputs)
+            outputs.files stagingJar.outputs.files.collect {
+                new File(it.parent, it.name.replace('-unsigned', ''))
+            }
+            doLast {
+                stagingJar.outputs.files.each {
+                    ant.signjar(
+                            alias: project.keyStoreCert,
+                            jar: it,
+                            signedJar: new File(it.parent, it.name.replace('-unsigned', '')),
+                            keystore: project.keyStorePath,
+                            storepass: project.keyStoreSecret,
+                            keypass: project.keyStoreSecret,
+                            tsaurl: project.timestampAuthority,
+                            preservelastmodified: 'true',
+                            verbose: true
+                    )
+                }
             }
         }
+        build.dependsOn(signJar)
     }
-    build.dependsOn(signJar)
-}
 
 // Run this task instead of build to generate a timestamped shadow jar (for dev)
-task timestamp(type: Jar, dependsOn: build) {
-    if (gradle.startParameter.taskNames.contains(name)) {
-        shadowJar.classifier = new Date().format('yyyyMMddHHmmss')
-    }
-}
-
-task sourceJar(type: Jar) {
-    sourceSets.findAll { it.name != 'modularity' }.each {
-        from it.java
-        from it.resources
-    }
-    classifier = "sources"
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
-
-task javadocJar(type: Jar, dependsOn: javadoc) {
-    from javadoc.destinationDir
-    classifier = "javadoc"
-}
-
-artifacts {
-    if (project.doSignJar) {
-        archives signJar.outputs.files[0]
-    } else {
-        archives stagingJar
-    }
-    archives sourceJar
-    archives javadocJar
-    archives shadowJar
-}
-
-ext.mavenPom = {
-    name = project.archivesBaseName
-    packaging = project.packaging
-    description = project.projectName
-    url = 'http://www.spongepowered.org/'
-
-    scm {
-        url = 'https://github.com/SpongePowered/Mixin'
-        connection = 'scm:git:git://github.com/SpongePowered/Mixin.git'
-        developerConnection = 'scm:git:git@github.com:SpongePowered/Mixin.git'
-    }
-
-    issueManagement {
-        system = 'GitHub Issues'
-        url = 'https://github.com/SpongePowered/Mixin/issues'
-    }
-
-    licenses {
-        license {
-            name = 'MIT license'
-            url = 'http://opensource.org/licenses/MIT'
-            distribution = 'repo'
+    task timestamp(type: Jar, dependsOn: build) {
+        if (gradle.startParameter.taskNames.contains(name)) {
+            shadowJar.classifier = new Date().format('yyyyMMddHHmmss')
         }
     }
-}
-def ENV = System.getenv()
-publishing {
-    publications {
-        maven(MavenPublication) {
-            pom mavenPom
-            groupId = project.group
-            version = project.version
-            artifactId = project.archivesBaseName
 
-            if (project.doSignJar) {
-                artifact signJar.outputs.files[0]
-            } else {
-                artifact stagingJar
+    task sourceJar(type: Jar) {
+        sourceSets.findAll { it.name != 'modularity' }.each {
+            from it.java
+            from it.resources
+        }
+        classifier = "sources"
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    task javadocJar(type: Jar, dependsOn: javadoc) {
+        from javadoc.destinationDir
+        classifier = "javadoc"
+    }
+
+    artifacts {
+        if (project.doSignJar) {
+            archives signJar.outputs.files[0]
+        } else {
+            archives stagingJar
+        }
+        archives sourceJar
+        archives javadocJar
+        archives shadowJar
+    }
+
+    ext.mavenPom = {
+        name = project.archivesBaseName
+        packaging = project.packaging
+        description = project.projectName
+        url = 'http://www.spongepowered.org/'
+
+        scm {
+            url = 'https://github.com/SpongePowered/Mixin'
+            connection = 'scm:git:git://github.com/SpongePowered/Mixin.git'
+            developerConnection = 'scm:git:git@github.com:SpongePowered/Mixin.git'
+        }
+
+        issueManagement {
+            system = 'GitHub Issues'
+            url = 'https://github.com/SpongePowered/Mixin/issues'
+        }
+
+        licenses {
+            license {
+                name = 'MIT license'
+                url = 'http://opensource.org/licenses/MIT'
+                distribution = 'repo'
             }
-            artifact sourceJar
-            artifact javadocJar
-            artifact shadowJar
         }
     }
+    def ENV = System.getenv()
+    publishing {
+        publications {
+            maven(MavenPublication) {
+                pom mavenPom
+                groupId = project.group
+                version = project.version
+                artifactId = project.archivesBaseName
 
-    repositories {
-        if (ENV.MAVEN_PUBLISH_KEY) {
-            maven {
-                url "https://repo.blucobalt.dev/repository/maven-hosted"
-                credentials {
-                    username 'github-actions'
-                    password ENV.MAVEN_PUBLISH_KEY
+                if (project.doSignJar) {
+                    artifact signJar.outputs.files[0]
+                } else {
+                    artifact stagingJar
                 }
-                authentication {
-                    basic(BasicAuthentication)
+                artifact sourceJar
+                artifact javadocJar
+                artifact shadowJar
+            }
+        }
+
+        repositories {
+            if (ENV.MAVEN_PUBLISH_KEY) {
+                maven {
+                    url "https://repo.blucobalt.dev/repository/maven-hosted"
+                    credentials {
+                        username 'github-actions'
+                        password ENV.MAVEN_PUBLISH_KEY
+                    }
+                    authentication {
+                        basic(BasicAuthentication)
+                    }
                 }
             }
         }
